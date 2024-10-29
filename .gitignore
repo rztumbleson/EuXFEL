@@ -1,0 +1,5 @@
+./data/*
+./dask_reports/*
+./logs/*
+./calculated_statistics/*
+*checkpoint.ipynb*
