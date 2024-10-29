@@ -1,5 +1,9 @@
-./data/*
-./dask_reports/*
-./logs/*
-./calculated_statistics/*
-*checkpoint.ipynb*
+data/*
+dask_reports/*
+logs/*
+calculated_statistics/*
+*checkpoint*
+misc/*
+visualizations/*
+masks/*
+*pyc*
