@@ -62,6 +62,7 @@ def generate_photon_maps(run, module, overwrite_file=False):
     # Check if the output file already exists
     if not overwrite_file and os.path.exists(output_file):
         print('Output file already exists.')
+        return
     else:
         # Create the HDF5 file and initialize its metadata
         initialize_h5_photon_maps(output_file, run, module)
