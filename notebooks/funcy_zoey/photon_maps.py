@@ -5,7 +5,7 @@ import os
 from tqdm.notebook import tqdm
 from datetime import datetime
 import numpy as np
-from extra_data import open_run
+from extra_data import open_run # type: ignore
 
 
 def initialize_h5_photon_maps(output_file, run, module):

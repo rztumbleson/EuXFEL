@@ -1,4 +1,5 @@
 data/*
+!data/small_data/
 dask_reports/*
 logs/*
 calculated_statistics/*
