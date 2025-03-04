@@ -1,4 +1,3 @@
-import dask.array as da
 from glob import glob
 import re
 import h5py
