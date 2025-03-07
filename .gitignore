@@ -2,3 +2,4 @@ data/*
 calculated_statistics/*
 *checkpoint*
 misc/*
+scripts/scratch.py
