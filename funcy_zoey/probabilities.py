@@ -1,8 +1,10 @@
 import numba as nb
 import numpy as np
+import h5py
+from tqdm import tqdm
 
 @nb.jit(nopython=True, parallel=True)
-def bincount(arr, max_photons=19):
+def bincount(arr, max_photons):
     """
     Apply np.bincount to each pixel in the chunk.
 
@@ -58,42 +60,43 @@ def add_two_stacks(arr, delay, mask=None, pulses_per_train=200):
                 idx += 1
     return out
 
-@nb.jit(nopython=True, parallel=True)
-def calculate_probabilities_chunk(chunk, train_sum, intensity_threshold=0.05, pulses_per_train=200, max_photons=19):
-    """
-    Iterate over delays and calculate the bincount for each delay.
-
-    Parameters:
-    chunk (numpy array): Input chunk with shape (n, pulses_per_train, ...).
-    pulses_per_train (int, optional): Number of pulses per train. Defaults to 200.
-    max_photons (int, optional): Maximum number of photons. Defaults to 19.
-
-    Returns:
-    numpy array: Output array with shape (pulses_per_train, ..., max_photons+1).
-    """
-    
-    out = np.zeros((pulses_per_train, chunk.shape[2], chunk.shape[3], max_photons+1), dtype=np.float32)
-    for dt in nb.prange(pulses_per_train):
-        if dt == 0:
-            filt = np.full((train_sum.shape[0], pulses_per_train), True)
-            filt[:, :pulses_per_train-1] = get_intensity_filter(train_sum, 1, thresh=intensity_threshold)
-        else:
-            filt = get_intensity_filter(train_sum, dt, thresh=intensity_threshold)
-        two_sum = add_two_stacks(chunk, dt, mask=filt)
-        out[dt] = bincount(two_sum, max_photons=max_photons) / filt.sum()
-    return out
 
 @nb.jit(nopython=True, parallel=True, cache=True)
-def get_intensity_filter(arr, dt, thresh, pulses_per_train=200):
+def get_relative_intensity_filter(arr, dt, thresh, pulses_per_train=200):
     out = np.full((arr.shape[0], pulses_per_train - dt), True)
-    for i in range(arr.shape[0]):
-        for j in range(pulses_per_train - dt):
+    for i in nb.prange(arr.shape[0]):
+        for j in nb.prange(pulses_per_train - dt):
             left = arr[i, j]
             right = arr[i, j + dt]
             out[i, j] = np.abs(left - right) / ((left + right) / 2) < thresh
     return out
 
-def load_train_sum():
+def load_train_sum(run, module):
     # todo: actually save properly
-    return np.load('../data/train_sum_masked.npy')
+    return np.load(f'../data/small_data/train_sum_run{run:03d}_module{module:02d}.npy')
 
+def load_photon_maps(run, module, filter=None):
+    input_path = f'../data/small_data/run{run:03d}_module{module:02d}_photon_maps.h5'
+    if filter is None:
+        filter = np.s_[:]
+    with h5py.File(input_path, 'r') as f:
+        photon_maps = f['photon_maps'][filter]
+    return photon_maps
+
+def filter_full_trains():
+    filt = np.full((100), False)
+    filt[np.random.choice(100, 30)] = True
+    return filt
+
+def generate_pmfs(run, module):
+    arr = load_train_sum(run, module)[:100]
+    filt_abs = filter_full_trains()
+    photon_maps = load_photon_maps(run, module, filter=filt_abs)
+    max_photons = np.amax(photon_maps) * 2
+
+    pmfs = np.zeros((200, 128, 512, max_photons+1), dtype=np.float32)
+    for dt in tqdm(range(200)):
+        filt_rel = get_relative_intensity_filter(arr[filt_abs], dt, thresh=0.05)
+        two_sum = add_two_stacks(photon_maps, dt, mask=filt_rel)
+        pmfs[dt] = bincount(two_sum, max_photons=max_photons) / filt_rel.sum()
+    return pmfs
